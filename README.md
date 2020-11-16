@@ -9,7 +9,7 @@ configuration of a pair of SSL Certificates for encryption.
 
 ## Requirements
 
-* SilverStripe ^4.6
+* Silverstripe CMS ^4.6
 * OpenSSL
 * Certificates to encrypt
 
