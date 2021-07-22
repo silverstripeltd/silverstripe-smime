@@ -3,8 +3,7 @@
 Configuring this module for use requires creation of SSL keys for encryption and/or signing messages, instantiating the mailer with those keys and
 handing off to the mailer for sending of emails.
 
-Generation of self-signed keys
-==============================
+## Generation of self-signed keys
 
 Certificates need to be PEM encoded in order to work with SwiftMailer / S/MIME.
 
@@ -44,8 +43,7 @@ encrypting and decrypting tests can be run via command line.
 
 This section is intended for use only when testing.
 
-Create OpenSSL configuration file for use with emailProtection
---------------------------------------------------------------
+### Create OpenSSL configuration file for use with emailProtection
 
 Create a new configuration include.
 ```
@@ -101,10 +99,9 @@ Some relevant config file docs for the \[smime\] section can be found here:
 [https://www.openssl.org/docs/man1.1.1/man5/x509v3_config.html](https://www.openssl.org/docs/man1.1.1/man5/x509v3_config.html).
 The key configuration here is `extendedKeyUsage = emailProtection`.
 
-Generate CA private key
------------------------
+### Generate CA private key
 
-### RSA
+#### RSA
 
 `openssl genrsa -out ca.key 4096`
 
@@ -124,8 +121,7 @@ Generate CA private key
 
 We end up with ca.key, a PEM encoded file which contains the private key of the CA.
 
-Generate CA certificate
------------------------
+### Generate CA certificate
 
 The certificate will contain the public key for the CA.
 
@@ -188,7 +184,7 @@ The certificate will contain the public key for the CA.
 We end up with ca.crt, a PEM encoded self signed cert for the CA in x.509
 format.
 
-### Example
+#### Example
 
 It can be useful to use different details when prompted for certificate
 information to keep track of the set up e.g:
@@ -267,14 +263,12 @@ A PEM encoded certificate:
 
 *   each line must be maximum 79 characters long
 
-
-Generate leaf private key
--------------------------
+### Generate leaf private key
 
 Generate the _Certificate_ private key, the private key of the key pair we wish
 to use directly, as opposed to the CA private key above.
 
-### RSA
+#### RSA
 
 `openssl genrsa -aes256 -out client-smime-<ENV>.key 4096`
 
@@ -311,8 +305,7 @@ the below command then it is:
 
 `openssl rsa -inform PEM -in client-smime-<ENV>.key -text -noout`
 
-Generate leaf certificate signing request
------------------------------------------
+### Generate leaf certificate signing request
 
 `openssl req -config smime.cnf -new -key client-smime-<ENV>.key -out client-smime-<ENV>.csr`
 
@@ -348,7 +341,7 @@ Generate leaf certificate signing request
 
 You will be prompted to fill out the certificate information.
 
-### Example
+#### Example
 ```
 openssl req -config smime.cnf -new -key client-smime-host.key -out client-smime-host.csr
 You are about to be asked to enter information that will be incorporated
@@ -369,8 +362,7 @@ Email Address (e.g: your email address) []:test@example.com
 
 We end up with client-smime-<ENV>.csr, PEM encoded certificate signing request.
 
-Generate leaf certificate
--------------------------
+### Generate leaf certificate
 
 `openssl x509 -req -in client-smime-<ENV>.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client-smime-<ENV>.crt`
 
@@ -435,7 +427,7 @@ Generate leaf certificate
 We end up with ca.srl, a file containing a serial number, and
 client-smime-<ENV>.crt our PEM encoded, x.509 format certificate.
 
-### Example
+#### Example
 
 Lets check if CRT is PEM encoded:
 
@@ -472,8 +464,7 @@ cat ca.srl
 4A90215A...
 ```
 
-Summary
--------
+### Summary
 
 We have generated a public/private key pair for our own certificate authority
 (CA). We have generated a public/private key pair for application use, which is
@@ -494,14 +485,13 @@ You should end up with these files
 *   `ca.srl`
 
 
-Next steps
-----------
+### Next steps
 
 We can use the key pair we have generated and signed, for encrypting or signing
 SMIME messages. In order to provide the keypair to Microsoft Outlook it can be
 useful to bundle everything into a `.p12` archive for importing into outlook.
 
-### Bundle into p12
+#### Bundle into p12
 
 PKCS #12 defines an archive file format for storing many cryptography objects as
 a single file. It is commonly used to bundle a private key with its X.509

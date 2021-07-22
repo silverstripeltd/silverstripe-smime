@@ -17,16 +17,20 @@ keys for signing emails.
 ## Installation
 
 ```
-composer require silverstripe/smime 1.x-dev
+composer require silverstripe/smime dev-master
 ```
-
-## License
-
-See [License](license.md)
-
 ## Configuration
 
-See the [docs](/docs/en/index.md) for a full guide.
+See the [configuration guide](/docs/en/configuration.md) for a full guide.
+
+## Docs
+
+See the [documentation](/docs/en/index.md).
+
+## Development and contribution
+
+If you would like to make contributions to the module please ensure you raise a
+pull request and discuss with the module maintainers.
 
 ## Bugtracker
 
@@ -44,7 +48,6 @@ If the issue does look like a new bug:
 Please report security issues to security directly. Please don't
 file security issues in the bugtracker.
 
-## Development and contribution
+## License
 
-If you would like to make contributions to the module please ensure you raise a
-pull request and discuss with the module maintainers.
+See [License](license.md)
