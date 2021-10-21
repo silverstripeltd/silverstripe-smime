@@ -10,22 +10,9 @@ keys for signing emails.
 
 ## Requirements
 
-* Silverstripe framework ^4.5 (without file attachments)
+* Silverstripe framework ^4.9
 * OpenSSL ^1.1.1
 * Key pairs for encrypting and signing messages
-
-### Emailing file attachments
-
-There is a known issue with Swiftmailer 5.x wherein email clients are unable to
-decrypt encrypted emails which contain attachments.
-
-Any Silverstripe framework versions (>=4.0 <=4.8 at time of writing) which
-require Swiftmailer 5.x (usually dependency `swiftmailer/swiftmailer: ~5.4`) are
-susceptible to the issue.
-
-If email attachments are required please look at this Silverstripe framework
-[pull request for Swiftmailer v6
-support](https://github.com/silverstripe/silverstripe-framework/pull/10031).
 
 ## Installation
 
