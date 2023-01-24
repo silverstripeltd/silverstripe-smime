@@ -66,8 +66,9 @@ class SMIMEMailer extends SwiftMailer
         ?string $signingKey = null,
         ?string $signingKeyPassphrase = null,
         array $options = []
-    )
-    {
+    ) {
+        parent::__construct();
+
         $this->setEncryptingCerts($encryptingCerts);
         $this->setSigningCert($signingCert);
         $this->setSigningKey(
