@@ -2,29 +2,69 @@
 
 namespace SilverStripe\SMIME\Tests\Control;
 
-use Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use SilverStripe\Control\Email\Email;
 use SilverStripe\Dev\SapphireTest;
 use SilverStripe\SMIME\Control\SMIMEMailer;
 use Swift_ByteStream_FileByteStream;
+use Throwable;
 
+/**
+ * Class SMIMEMailerTest
+ *
+ * Set of tests to validate the SMIMEMailer class.
+ *
+ * Note that within the test framework the send email function is intercepted and so we can't test the actual
+ * send function. What we are validating is that a {@see Swift_Message}, with expected encryption/signing
+ * properties, is passed to the sendSwift function (by mocking the function). We call toString and toByteStream
+ * functions on the message that applies the relevant encryption and signing prior to returning a value. With this
+ * value we can inspect/assert the expected content.
+ */
 class SMIMEMailerTest extends SapphireTest
 {
 
     protected $usesDatabase = false; // phpcs:ignore
 
-    public function testEncryptionOnly()
+    /**
+     * Asset path for the test recipient crt file
+     */
+    private static string $recipientCertificateAsset = '/assets/smime_test_recipient.crt';
+
+    /**
+     * Asset path for the test recipient private key file, used for testing decryption
+     */
+    private static string $recipientKeyAsset = '/assets/smime_test_recipient.key';
+
+    /**
+     * Asset path for the test sender crt file, used for testing signing of the email.
+     */
+    private static string $senderCertificateAsset = '/assets/smime_test_sender.crt';
+
+    /**
+     * Asset path for the test sender key file, used for testing signing of the email.
+     */
+    private static string $senderKeyAsset = '/assets/smime_test_sender.key';
+
+    /**
+     * Signing password for the test encryption key.
+     */
+    private static string $senderKeyPassword = 'Test123!';
+
+    /**
+     * Pass in an encryption certificate to the SMIMEMailer and check that the email content is encrypted.
+     */
+    public function testEncryptionOnly(): void
     {
-        $recipientEncryptionCrt = $this->getAsset('/assets/smime_test_recipient.crt');
-        $email = $this->buildEmail('Email with encryption', 'This is a confidential email.');
+        $unencrytpedContent = 'This is a confidential email.';
+        $recipientEncryptionCrt = $this->getAsset(self::$recipientCertificateAsset);
+        $email = $this->buildEmail('Email with encryption', $unencrytpedContent);
         $partialMockMailer = $this->createPartialMockedMIMEMailer([$recipientEncryptionCrt]);
 
         $partialMockMailer->expects($this->once())->method('sendSwift')->with(
-            self::callback(function ($message) {
+            self::callback(function ($message) use ($unencrytpedContent) {
                 $encryptedMessage = $message->toString();
                 self::assertStringContainsString('Content-Type: application/x-pkcs7-mime;', $encryptedMessage);
-                self::assertStringNotContainsString('This is a confidential email.', $encryptedMessage);
+                self::assertStringNotContainsString($unencrytpedContent, $encryptedMessage);
 
                 return true;
             })
@@ -33,15 +73,20 @@ class SMIMEMailerTest extends SapphireTest
         $partialMockMailer->send($email);
     }
 
-    public function testSuccessfulDecryption()
+    /**
+     * Pass in an encryption certificate to the SMIMEMailer and with the encrypted email, we can decrypt it
+     * with the matching private key.
+     */
+    public function testSuccessfulDecryption(): void
     {
-        $email = $this->buildEmail('Email with encryption', '<h1>This is a confidential email</h1>');
+        $unencrytpedContent = '<h1>This is a confidential email</h1>';
+        $email = $this->buildEmail('Email with encryption', $unencrytpedContent);
         $partialMockMailer = $this->createPartialMockedMIMEMailer([
-            $this->getAsset('/assets/smime_test_recipient.crt')
+            $this->getAsset(self::$recipientCertificateAsset),
         ]);
 
         $partialMockMailer->expects($this->once())->method('sendSwift')->with(
-            self::callback(function ($message) {
+            self::callback(function ($message) use ($unencrytpedContent) {
 
                 // Output email message to file
                 $file = @tempnam(__DIR__ . '/tmp', 'smimetest');
@@ -50,8 +95,8 @@ class SMIMEMailerTest extends SapphireTest
 
                 // Use openssl to extract private key, using password
                 $privateKey = openssl_pkey_get_private(
-                    file_get_contents($this->getAsset('/assets/smime_test_recipient.key')),
-                    'Test123!'
+                    file_get_contents($this->getAsset(self::$recipientKeyAsset)),
+                    self::$senderKeyPassword
                 );
 
                 // Decrypt email message
@@ -59,13 +104,13 @@ class SMIMEMailerTest extends SapphireTest
                 openssl_cms_decrypt(
                     $file,
                     $decryptedFile,
-                    file_get_contents($this->getAsset('/assets/smime_test_recipient.crt')),
+                    file_get_contents($this->getAsset(self::$recipientCertificateAsset)),
                     $privateKey
                 );
 
                 // Check that decrypted file contains expected string
                 self::assertStringContainsString(
-                    '<h1>This is a confidential email</h1>',
+                    $unencrytpedContent,
                     file_get_contents($decryptedFile)
                 );
 
@@ -76,24 +121,29 @@ class SMIMEMailerTest extends SapphireTest
         $partialMockMailer->send($email);
     }
 
-    public function testSigningOnly()
+    /**
+     * Pass in the signing certificate/key pair for the sender, and check that the email content
+     * is signed but not encrypted.
+     */
+    public function testSigningOnly(): void
     {
-        $recipientSigningCrt = $this->getAsset('/assets/smime_test_sender.crt');
-        $recipientSigningKey = $this->getAsset('/assets/smime_test_sender.key');
+        $unencrytpedContent = '<h1>This is not a confidential email.</h1>';
+        $recipientSigningCrt = $this->getAsset(self::$senderCertificateAsset);
+        $recipientSigningKey = $this->getAsset(self::$senderKeyAsset);
         $email = $this->buildEmail(
             'Email smime signed by sender',
-            '<h1>This is not a confidential email.</h1>'
+            $unencrytpedContent
         );
 
         $partialMockMailer = $this->createPartialMockedMIMEMailer([
             null,
             $recipientSigningCrt,
             $recipientSigningKey,
-            'Test123!'
+            'Test123!',
         ]);
 
         $partialMockMailer->expects($this->once())->method('sendSwift')->with(
-            self::callback(function ($message) {
+            self::callback(function ($message) use ($unencrytpedContent) {
                 // Convert the message to a string. This has signing applied to it
                 $signedMessage = $message->toString();
 
@@ -103,7 +153,7 @@ class SMIMEMailerTest extends SapphireTest
                 );
 
                 self::assertStringContainsString('This is an S/MIME signed message', $signedMessage);
-                self::assertStringContainsString('<h1>This is not a confidential email.</h1>', $signedMessage);
+                self::assertStringContainsString($unencrytpedContent, $signedMessage);
 
                 return true;
             })
@@ -112,30 +162,36 @@ class SMIMEMailerTest extends SapphireTest
         $partialMockMailer->send($email);
     }
 
-    public function testSigningErrorWithIncorrectSigningPassword()
+    /**
+     * Pass in an a signing certificate/key pair (without encryption) and check that the email cannot be signed
+     * without the correct signing password.
+     */
+    public function testSigningErrorWithIncorrectSigningPassword(): void
     {
-        $recipientSigningCrt = $this->getAsset('/assets/smime_test_sender.crt');
-        $recipientSigningKey = $this->getAsset('/assets/smime_test_sender.key');
+        $unencrytpedContent = '<h1>This is not a confidential email.</h1>';
+        $recipientSigningCrt = $this->getAsset(self::$senderCertificateAsset);
+        $recipientSigningKey = $this->getAsset(self::$senderKeyAsset);
         $email = $this->buildEmail(
             'Email smime signed by sender',
-            '<h1>This is not a confidential email.</h1>'
+            $unencrytpedContent
         );
 
         $partialMockMailer = $this->createPartialMockedMIMEMailer([
             null,
             $recipientSigningCrt,
             $recipientSigningKey,
-            'IncorrectPassword!'
+            'IncorrectPassword!',
         ]);
 
         $partialMockMailer->expects($this->once())->method('sendSwift')->with(
             self::callback(function ($message) {
                 $exception = null;
+
                 try {
                     // Calling toString encrypts and signs.
                     // Here we expect an exception because of incorrect password
                     $message->toString();
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
                     $exception = $e;
                 } finally {
                     self::assertEquals(
@@ -151,26 +207,31 @@ class SMIMEMailerTest extends SapphireTest
         $partialMockMailer->send($email);
     }
 
-    public function testSigningAndEncryption()
+    /**
+     * Pass in both signing and encryption certificates and check that the email is correctly encrypted and it
+     * indicates that it has been digitally signed.
+     */
+    public function testSigningAndEncryption(): void
     {
-        $recipientEncryptionCrt = $this->getAsset('/assets/smime_test_recipient.crt');
-        $recipientSigningCrt = $this->getAsset('/assets/smime_test_sender.crt');
-        $recipientSigningKey = $this->getAsset('/assets/smime_test_sender.key');
+        $unencrytpedContent = '<h1>This is a confidential email.</h1>';
+        $recipientEncryptionCrt = $this->getAsset(self::$recipientCertificateAsset);
+        $senderSigningCrt = $this->getAsset(self::$senderCertificateAsset);
+        $senderSigningKey = $this->getAsset(self::$senderKeyAsset);
         $email = $this->buildEmail(
             'Email encrypted and smime signed by sender',
-            '<h1>This is a confidential email.</h1>'
+            $unencrytpedContent
         );
 
         $partialMockMailer = $this->createPartialMockedMIMEMailer([
             $recipientEncryptionCrt,
-            $recipientSigningCrt,
-            $recipientSigningKey,
-            'Test123!'
+            $senderSigningCrt,
+            $senderSigningKey,
+            'Test123!',
         ]);
 
         $partialMockMailer->expects($this->once())->method('sendSwift')->with(
-            self::callback(function ($message) {
-                self::assertStringNotContainsString('This is a confidential email.', $message->toString());
+            self::callback(function ($message) use ($unencrytpedContent) {
+                self::assertStringNotContainsString($unencrytpedContent, $message->toString());
 
                 // Note, messages are signed and then encrypted, so the signing particulars are not seen unencrypted
                 self::assertStringNotContainsString(
@@ -187,6 +248,12 @@ class SMIMEMailerTest extends SapphireTest
         $partialMockMailer->send($email);
     }
 
+    /**
+     * These tests don't use the database so this prevents any attempt to close the database.
+     * Useful for running tests locally where no database is configured.
+     *
+     * @return void
+     */
     public static function tearDownAfterClass(): void
     {
         // Disable as we don't have any db to reset
@@ -197,10 +264,10 @@ class SMIMEMailerTest extends SapphireTest
      * This allows us to perform assertions on the signed/encrypted message
      * that gets sent to the swift mailer.
      *
-     * @param $args
+     * @param array $args
      * @return MockObject|SMIMEMailer
      */
-    private function createPartialMockedMIMEMailer($args)
+    private function createPartialMockedMIMEMailer(array $args): MockObject|SMIMEMailer
     {
         return $this->getMockBuilder(SMIMEMailer::class)
             ->setConstructorArgs($args)
@@ -240,4 +307,5 @@ class SMIMEMailerTest extends SapphireTest
     {
         return sprintf('%s%s', __DIR__, $filename);
     }
+
 }
