@@ -10,6 +10,7 @@
     ],
     "license": "BSD-3-Clause",
     "require": {
+        "php": "^8.0 || ^8.1",
         "silverstripe/framework": "^4.9",
         "ext-openssl": "*",
         "silverstripe/cms": "^4.11"
@@ -22,6 +23,10 @@
         {
             "name": "Danae Miller-Clendon",
             "email": "danae.millerclendon@silverstripe.com"
+        },
+        {
+            "name": "Andrew Dunn",
+            "email": "andrew.dunn@silverstripe.com"
         }
     ],
     "require-dev": {
